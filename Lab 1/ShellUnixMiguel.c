@@ -20,21 +20,49 @@ void addCommandToHistory(char *command){
    strcpy(history[historyIndex++], command);
 }
 
-void read_command(char *argv[])
-{  
-   n = 0;
-   gets(temp);
-   addCommandToHistory(temp);
-   argv[n++] = strtok (temp," ");
-   while (argv[n-1] != NULL)
-      argv[n++] = strtok (NULL, " ");
-}
-
 void printHistory() {
    int i;
    for (i = 0; i < historyIndex; i++){
       printf("%d %s\n", i, history[i]);
    }
+}
+
+void read_command(char *argv[])
+{  
+   n = 0;
+   gets(temp);
+   if (strcmp(temp, "history") == 0){
+      addCommandToHistory("history");
+      printHistory();
+      argv[0] = NULL;
+      return;
+   }
+   if (temp[0] == '!'){
+      if (temp[1] == '!'){
+         if (strcmp(history[historyIndex-1], "history") == 0){
+            addCommandToHistory("history");
+            printHistory();
+            argv[0] = NULL;
+            return;
+         }
+         else{
+            argv[n++] = strtok(history[historyIndex-1], " ");
+            addCommandToHistory(history[historyIndex-1]);
+         }
+      }
+      else {
+         char *read;
+         read = strtok(temp, "!");
+         int index = atoi(read);
+         argv[n++] = strtok(history[index], " ");
+      }
+   }
+   else{
+      argv[n++] = strtok (temp," ");
+      addCommandToHistory(temp);
+   }
+   while (argv[n-1] != NULL)
+      argv[n++] = strtok (NULL, " ");
 }
 
 int main()
