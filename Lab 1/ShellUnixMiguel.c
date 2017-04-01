@@ -8,33 +8,48 @@
 int n = 0; int pid;
 char *argv[];char temp[256];
 int argc;
+char history[100][256];
+int historyIndex = 0;
 
 void type_prompt()
-{
+{  
    printf("[shell-PID=%i]$ ", getpid());
 }
 
+void addCommandToHistory(char *command){
+   strcpy(history[historyIndex++], command);
+}
+
 void read_command(char *argv[])
-{
+{  
    n = 0;
    gets(temp);
+   addCommandToHistory(temp);
    argv[n++] = strtok (temp," ");
    while (argv[n-1] != NULL)
-   argv[n++] = strtok (NULL, " ");
+      argv[n++] = strtok (NULL, " ");
+}
+
+void printHistory() {
+   int i;
+   for (i = 0; i < historyIndex; i++){
+      printf("%d %s\n", i, history[i]);
+   }
 }
 
 int main()
 {
    int status;
    argv[0] = NULL;
+   puts("Terminal shell UNIX. Este terminal não aceita comandos executados em segundo plano (com &) nem comandos em pipe (com |)");
    while (TRUE) /* repeat forever */ {
       type_prompt(); /* display prompt on screen */
       read_command(argv); /* read input from terminal */
       if ((pid = fork()) != 0) /* fork off child process */ {
          printf("Esperando o filho: pid = %i\n", pid);
          waitpid(-1, &status, 0); /* wait for child to exit */
-         printf("Waiting finished");
-      }
+         printf("Espera terminada\n");
+      } 
       else {
          if (execvp(argv[0], argv) == -1) /* execute command */
             printf("Não executou. Erro: %s\n", strerror(errno));
