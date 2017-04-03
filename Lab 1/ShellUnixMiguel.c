@@ -6,7 +6,7 @@
 #define TRUE 1
 
 int n = 0; int pid;
-char *argv[];char temp[256];
+char *argv[30];char temp[256];
 int argc;
 char history[100][256];
 int historyIndex = 0;
