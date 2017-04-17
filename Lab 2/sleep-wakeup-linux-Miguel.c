@@ -1,11 +1,12 @@
-#include <windows.h>
+#include <pthread.h>
 #include <stdio.h>
+#include <unistd.h>
 
 #define TRUE 1
 #define FALSE 0
 #define N 10
-#define debugtxt(FORMAT) printf(" TID %d: " #FORMAT "\n",GetCurrentThreadId())
-#define debug(FORMAT, ARGS...) printf("TID %d: " #FORMAT "\n",GetCurrentThreadId(),ARGS)
+#define debugtxt(FORMAT) printf(" TID %lu: " #FORMAT "\n",pthread_self())
+#define debug(FORMAT, ARGS...) printf("TID %lu: " #FORMAT "\n",pthread_self(),ARGS)
 int line_counter;
 
 
@@ -32,19 +33,25 @@ int remove_item() {
 }
 
 // Funcoes e variaveis das threads
-HANDLE handleThread[2];
-DWORD threadId[2];
+pthread_t threads[2];
+pthread_cond_t condThreads[2];
+
+//----------- NAO VAI SER USADO, EH SO PARA EVITAR WARNING DE NULL!!!
+pthread_mutex_t mutex;
+//-----------
+
+// Referencias ao produtor e ao consumidor
 const int producer = 0;
 const int consumer = 1;
-void sleep() {
+void sleepT(int x) {
 	debugtxt("Sleeping ...");
-	SuspendThread(GetCurrentThread());
-	debugtxt("Waked up!");
+	pthread_cond_wait(&condThreads[x], &mutex);
+	debugtxt("Awaken!");
 }
-void wakeup(const int x) {
-	debug("Waking up %d ...",threadId[x]);
-	ResumeThread(handleThread[x]);
-	debug("Waking up signal sent to %d!",threadId[x]);
+void wakeupT(const int x) {
+	debug("Waking up %s ...", x == 0 ? "producer" : "consumer");
+	pthread_cond_signal(&condThreads[x]);
+	debug("Wakeup signal sent to %s!", x == 0 ? "producer" : "consumer");
 }
 
 // Produtor e consumidor ...
@@ -60,31 +67,31 @@ void consume_item(int item) {
 	debug("Consumed item %d",item);
 }
 
-DWORD WINAPI producerFunc( LPVOID lpParam ) {
+int producerFunc() {
 	debugtxt("Starting producer");
 	int item;
 	while(TRUE) {
 		item=produce_item();
-		if(count == N) sleep();
+		if(count == N) sleepT(0);
 		insert_item(item);
 		count = count + 1;
-		if(count == 1) wakeup(consumer);
+		if(count == 1) wakeupT(1);
 	}
 	debugtxt("Ending producer");
 	return 0;
 }
 
-DWORD WINAPI consumerFunc( LPVOID lpParam ) {
+int consumerFunc() {
 	debugtxt("Starting consumer");
 	int item;
 	while(TRUE) {
 		if(count == 0) {
-		   // Sleep(3000); //Descomentar:forca disputa
-			sleep();
+			sleep(3000); //Descomentar:forca disputa
+			sleepT(1);
 		}
 		item = remove_item();
 		count = count -1;
-		if(count == N-1) wakeup(producer);
+		if(count == N-1) wakeupT(0);
 		consume_item(item);
 	}
 	debugtxt("Ending consumer");
@@ -95,21 +102,16 @@ int main() {
    last_produced_item = 0;
    start = 0;
    end = 0;
-   LPTHREAD_START_ROUTINE threadFunc[2] = { producerFunc, consumerFunc };
+   void* threadFunc[2];
+   threadFunc[0] = producerFunc;
+   threadFunc[1] = consumerFunc;
    int i;
 
    for(i=0;i<2;i++) {
-		handleThread[i] = CreateThread( 
-            NULL,               // default security attributes
-            0,                  // use default stack size  
-            threadFunc[i],      // thread function pointer
-            &i,     			// argument to thread function 
-            0,                  // use default creation flags 
-            &threadId[i]);   // returns the thread identifier 
+   		pthread_create(&threads[i],
+   			NULL,
+   			threadFunc[i],
+   			NULL);
    }
-   WaitForMultipleObjects(2, handleThread, TRUE, INFINITE);
-	
-   for(i=0;i<2;i++) {CloseHandle(handleThread[i]);
-  }
-	
+   pthread_join(threads[1], NULL);	
 }
