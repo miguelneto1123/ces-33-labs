@@ -34,29 +34,27 @@ int remove_item() {
 // Funcoes e variaveis das threads
 pthread_t threads[2];
 pthread_cond_t condThreads[2];
-// HANDLE handleThread[2];
-// DWORD threadId[2];
 const int producer = 0;
 const int consumer = 1;
-// HANDLE full;
-// HANDLE empty;
-// HANDLE mutex;
-sem_t semaphore;
+sem_t spaceRemaining;
+sem_t entryCount;
+sem_t mutex;
 
 // // Truque para sabermos qual o semaforo foi chamado e poder imprimi-lo
-// #define up(SEM) _up(SEM,#SEM)
-// #define down(SEM) _down(SEM,#SEM)
+#define up(SEM, NAME) _up(SEM,NAME)
+#define down(SEM, NAME) _down(SEM,NAME)
 
-// void _up(HANDLE sem, const char * name) {
-// 	debug("Up %s ...",name);
-// 	ReleaseSemaphore(sem,1,NULL);
-// 	debug("Up %s complete!",name);
-// }
-// void _down(HANDLE sem, const char * name) {
-// 	debug("Down %s ...",name);
-// 	WaitForSingleObject(sem,INFINITE);
-// 	debug("Down %s complete!",name);
-// }
+void _up(sem_t* sem, const char * name) {
+	debug("Up %s ...",name);
+	sleep(5);
+	sem_post(sem);
+	debug("Up %s complete!",name);
+}
+void _down(sem_t* sem, const char * name) {
+	debug("Down %s ...",name);
+	sem_wait(sem);
+	debug("Down %s complete!",name);
+}
 
 // Produtor e consumidor ...
 int produce_item() {
@@ -76,13 +74,11 @@ int producerFunc() {
 	int item;
 	while(TRUE) {
 		item=produce_item();
-		// down(empty);
-		// down(mutex);
-		sem_wait(&semaphore);
+		down(&spaceRemaining, "spaceRemaining");
+		down(&mutex, "mutex");
 		insert_item(item);
-		// up(mutex);
-		// up(full);
-		sem_post(&semaphore);
+		up(&mutex, "mutex");
+		up(&entryCount, "entryCount");
 	}
 	debugtxt("Ending producer");
 	return 0;
@@ -92,13 +88,11 @@ int consumerFunc() {
 	debugtxt("Starting consumer");
 	int item;
 	while(TRUE) {
-		// down(full);
-		// down(mutex);
-		sem_wait(&semaphore);
+		down(&entryCount, "entryCount");
+		down(&mutex, "mutex");
 		item = remove_item();
-		// up(mutex);
-		// up(empty);
-		sem_post(&semaphore);
+		up(&mutex, "mutex");
+		up(&spaceRemaining, "spaceRemaining");
 		consume_item(item);
 	}
 	debugtxt("Ending consumer");
@@ -111,50 +105,20 @@ int main() {
 	last_produced_item = 0;
 	start = 0;
 	end = 0;
-	// Criando semaforos ...
-	// full = CreateSemaphore( 
-	// 		NULL,           // default security attributes
-	// 		0,			// initial count
-	// 		N,  			// maximum count
-	// 		NULL);
-	// empty = CreateSemaphore( 
-	// 		NULL,           // default security attributes
-	// 		N,			// initial count
-	// 		N,  			// maximum count
-	// 		NULL);
-	// mutex = CreateSemaphore( 
-	// 		NULL,           // default security attributes
-	// 		1,			// initial count
-	// 		1,  			// maximum count
-	// 		NULL);
-	sem_init(&semaphore, 0, 1);
+
+	sem_init(&mutex, 0, 1);
+	sem_init(&spaceRemaining, 0, N);
+	sem_init(&entryCount, 0, 0);
 
 	void* threadFunc[2];
 	threadFunc[0] = producerFunc;
 	threadFunc[1] = consumerFunc;
-	
-	// LPTHREAD_START_ROUTINE threadFunc[2] = { producerFunc, consumerFunc };
+
 	for(i=0;i<2;i++) {
    		pthread_create(&threads[i],
    			NULL,
    			threadFunc[i],
    			NULL);
-		// handleThread[i] = CreateThread( 
-            // NULL,               // default security attributes
-            // 0,                  // use default stack size  
-            // threadFunc[i],      // thread function pointer
-            // &i,     			// argument to thread function 
-            // 0,                  // use default creation flags 
-            // &threadId[i]);   // returns the thread identifier 
 	}
-	
-	// WaitForMultipleObjects(2, handleThread, TRUE, INFINITE);
 	pthread_join(threads[1], NULL);	
-	// for(i=0;i<2;i++) {
-	// 	CloseHandle(handleThread[i]);
-	// }
-	// CloseHandle(empty);
-	// CloseHandle(full);
-	// CloseHandle(mutex);
-	
 }

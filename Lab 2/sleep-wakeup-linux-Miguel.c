@@ -86,7 +86,7 @@ int consumerFunc() {
 	int item;
 	while(TRUE) {
 		if(count == 0) {
-			sleep(3000); //Descomentar:forca disputa
+			// sleep(3); //Descomentar:forca disputa
 			sleepT(1);
 		}
 		item = remove_item();
